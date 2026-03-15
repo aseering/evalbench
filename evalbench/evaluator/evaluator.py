@@ -6,6 +6,7 @@ from work import sqlgenwork
 from work import sqlexecwork
 from work import scorework
 from mp import mprunner
+import logging
 import concurrent.futures
 from dataset.evalinput import EvalInputRequest
 from dataset.evaloutput import EvalOutput
@@ -60,65 +61,73 @@ class Evaluator:
             eval_output = EvalOutput(eval_input)
             eval_output["job_id"] = job_id
             eval_output["run_time"] = run_time
-            work = promptgenwork.SQLPromptGenWork(prompt_generator, eval_output)
+            work = promptgenwork.SQLPromptGenWork(
+                prompt_generator, eval_output)
             self.promptrunner.execute_work(work)
 
-        for future in concurrent.futures.as_completed(self.promptrunner.futures):
-            try:
-                eval_output = future.result(timeout=600)
-            except Exception as e:
-                import logging
-                logging.error(f"Promptgen future error: {e}")
-                continue
-            record_successful_prompt_gen(progress_reporting)
-            work = sqlgenwork.SQLGenWork(model_generator, eval_output)
-            self.genrunner.execute_work(work)
+        try:
+            for future in concurrent.futures.as_completed(self.promptrunner.futures, timeout=600):
+                try:
+                    eval_output = future.result()
+                except Exception as e:
+                    logging.error(f"Promptgen future error: {e}")
+                    continue
+                record_successful_prompt_gen(progress_reporting)
+                work = sqlgenwork.SQLGenWork(model_generator, eval_output)
+                self.genrunner.execute_work(work)
+        except concurrent.futures.TimeoutError:
+            logging.error("Promptgen phase timed out")
 
-        for future in concurrent.futures.as_completed(self.genrunner.futures):
-            try:
-                eval_output = future.result(timeout=600)
-            except Exception as e:
-                import logging
-                logging.error(f"SQLgen future error: {e}")
-                continue
-            record_successful_sql_gen(progress_reporting)
-            try:
-                db_conn = db_queue.get(timeout=60)
-            except Exception as e:
-                import logging
-                logging.error("Failed to acquire DB connection from queue, skipping execution.")
-                continue
-            work = sqlexecwork.SQLExecWork(
-                db_conn, self.config, eval_output, db_queue
-            )
-            self.sqlrunner.execute_work(work)
+        try:
+            for future in concurrent.futures.as_completed(self.genrunner.futures, timeout=600):
+                try:
+                    eval_output = future.result()
+                except Exception as e:
+                    logging.error(f"SQLgen future error: {e}")
+                    continue
+                record_successful_sql_gen(progress_reporting)
+                try:
+                    db_conn = db_queue.get(timeout=60)
+                except Exception:
+                    logging.error("Failed to acquire DB connection from queue, skipping execution.")
+                    continue
+                work = sqlexecwork.SQLExecWork(
+                    db_conn, self.config, eval_output, db_queue
+                )
+                self.sqlrunner.execute_work(work)
+        except concurrent.futures.TimeoutError:
+            logging.error("SQLgen phase timed out")
 
-        for future in concurrent.futures.as_completed(self.sqlrunner.futures):
-            try:
-                eval_output = future.result(timeout=600)
-            except Exception as e:
-                import logging
-                logging.error(f"SQLExec future error: {e}")
-                continue
-            record_successful_sql_exec(progress_reporting)
-            work = scorework.ScorerWork(
-                self.config, eval_output, scoring_results, global_models
-            )
-            self.scoringrunner.execute_work(work)
+        try:
+            for future in concurrent.futures.as_completed(self.sqlrunner.futures, timeout=600):
+                try:
+                    eval_output = future.result()
+                except Exception as e:
+                    logging.error(f"SQLExec future error: {e}")
+                    continue
+                record_successful_sql_exec(progress_reporting)
+                work = scorework.ScorerWork(
+                    self.config, eval_output, scoring_results, global_models
+                )
+                self.scoringrunner.execute_work(work)
+        except concurrent.futures.TimeoutError:
+            logging.error("SQLExec phase timed out")
 
-        for future in concurrent.futures.as_completed(self.scoringrunner.futures):
-            try:
-                eval_output = future.result(timeout=600)
-            except Exception as e:
-                import logging
-                logging.error(f"Scoring future error: {e}")
-                continue
-            record_successful_scoring(progress_reporting)
-            truncateExecutionOutputs(
-                eval_output,
-                self.config,
-            )
-            eval_outputs.append(eval_output)
+        try:
+            for future in concurrent.futures.as_completed(self.scoringrunner.futures, timeout=600):
+                try:
+                    eval_output = future.result()
+                except Exception as e:
+                    logging.error(f"Scoring future error: {e}")
+                    continue
+                record_successful_scoring(progress_reporting)
+                truncateExecutionOutputs(
+                    eval_output,
+                    self.config,
+                )
+                eval_outputs.append(eval_output)
+        except concurrent.futures.TimeoutError:
+            logging.error("Scoring phase timed out")
 
         if db_queue:
             while not db_queue.empty():
