@@ -208,7 +208,12 @@ def get_google3_relative_path(value, session_id):
 def set_session_configs(session, experiment_config: dict):
     session["config"] = experiment_config
     if "dataset_config" in experiment_config and experiment_config["dataset_config"]:
-        session["dataset_config"] = experiment_config["dataset_config"]
+        # Handle both flat string paths and nested dicts (e.g. BIRD configs)
+        dc = experiment_config["dataset_config"]
+        if isinstance(dc, dict) and "prompts_file" in dc:
+            session["dataset_config"] = dc["prompts_file"]
+        else:
+            session["dataset_config"] = dc
     if (
         "database_configs" in experiment_config
         and experiment_config["database_configs"]
