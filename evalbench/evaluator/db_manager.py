@@ -7,21 +7,13 @@ from functools import partial
 from typing import Optional
 
 
-def build_db_queue(
-    core_db: DB, db_name, db_config, setup_config, query_type: str, num_dbs: int
-):
+def build_db_queue(core_db: DB, db_name, db_config, setup_config, query_type: str, num_dbs: int):
     if query_type == "dql":
-        return _prepare_db_queue_for_dql(
-            core_db, db_name, db_config, setup_config, num_dbs
-        )
+        return _prepare_db_queue_for_dql(core_db, db_name, db_config, setup_config, num_dbs)
     elif query_type == "dml":
-        return _prepare_db_queue_for_dml(
-            core_db, db_name, db_config, setup_config, num_dbs
-        )
+        return _prepare_db_queue_for_dml(core_db, db_name, db_config, setup_config, num_dbs)
     elif query_type == "ddl":
-        return _prepare_db_queue_for_ddl(
-            core_db, db_name, db_config, setup_config, num_dbs
-        )
+        return _prepare_db_queue_for_ddl(core_db, db_name, db_config, setup_config, num_dbs)
     return Queue[DB]()
 
 
@@ -31,7 +23,7 @@ def _prepare_db_queue_for_dql(core_db: DB, db_name, db_config, setup_config, num
     dql_db_config = deepcopy(db_config)
     if setup_config:
         setup_scripts, data = _get_setup_values(
-            setup_config, db_name, db_config.get("db_type")
+            setup_config, db_name, db_config.get("dialect") if db_config.get("db_type") == "spanner" else db_config.get("db_type")
         )
         core_db.set_setup_instructions(setup_scripts, data)
         core_db.resetup_database(False, True)
@@ -49,7 +41,7 @@ def _prepare_db_queue_for_dml(core_db: DB, db_name, db_config, setup_config, num
     dml_db_config = deepcopy(db_config)
     if setup_config:
         setup_scripts, data = _get_setup_values(
-            setup_config, db_name, db_config.get("db_type")
+            setup_config, db_name, db_config.get("dialect") if db_config.get("db_type") == "spanner" else db_config.get("db_type")
         )
         core_db.set_setup_instructions(setup_scripts, data)
         core_db.resetup_database(False, True)
@@ -65,21 +57,17 @@ def _prepare_db_queue_for_ddl(core_db: DB, db_name, db_config, setup_config, num
     """For DDL, use the same single DB with a user that has only DDL access."""
     if setup_config:
         setup_scripts, _ = _get_setup_values(
-            setup_config, db_name, db_config.get("db_type")
+            setup_config, db_name, db_config.get("dialect") if db_config.get("db_type") == "spanner" else db_config.get("db_type")
         )
     core_db.set_setup_instructions(setup_scripts, None)
     core_db.resetup_database(False, False)
     db_queue = Queue[DB]()
     if not setup_config:
         raise ValueError("No Setup Config was provided for DDL")
-    setup_scripts, _ = _get_setup_values(
-        setup_config, db_name, db_config.get("db_type")
-    )
+    setup_scripts, _ = _get_setup_values(setup_config, db_name, db_config.get("dialect") if db_config.get("db_type") == "spanner" else db_config.get("db_type"))
     tmp_dbs = core_db.create_tmp_databases(num_dbs)
     with ThreadPoolExecutor() as executor:
-        create_ddl_tmp_db_p = partial(
-            _create_ddl_tmp_db, db_config=db_config, setup_scripts=setup_scripts
-        )
+        create_ddl_tmp_db_p = partial(_create_ddl_tmp_db, db_config=db_config, setup_scripts=setup_scripts)
         results = executor.map(create_ddl_tmp_db_p, tmp_dbs)
         for tmp_db in results:
             db_queue.put(tmp_db)
@@ -91,19 +79,14 @@ def _create_ddl_tmp_db(tmp_db, db_config, setup_scripts):
     tmp_ddl_db_config["is_tmp_db"] = True
     tmp_db = get_database(tmp_ddl_db_config, tmp_db)
     tmp_db.set_setup_instructions(setup_scripts, None)
+    tmp_db.was_re_setup_this_session = True
     return tmp_db
 
 
 def _get_setup_values(setup_config, db_name: str, db_type: str):
     try:
-        setup_scripts = load_setup_scripts(
-            setup_config["setup_directory"] + "/" + db_name + "/" + db_type
-        )
-        data = load_db_data_from_csvs(
-            setup_config["setup_directory"] + "/" + db_name + "/data"
-        )
+        setup_scripts = load_setup_scripts(setup_config["setup_directory"] + "/" + db_type)
+        data = load_db_data_from_csvs(setup_config["setup_directory"] + "/data")
         return setup_scripts, data
     except Exception as e:
-        raise FileNotFoundError(
-            f"Could not find setup files for database {db_name} on {db_type} due to: {e}"
-        )
+        raise FileNotFoundError(f"Could not find setup files for database {db_name} on {db_type} due to: {e}")
