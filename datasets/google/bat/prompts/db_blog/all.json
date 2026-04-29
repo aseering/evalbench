@@ -6,18 +6,18 @@
     "database": "db_blog",
     "dialects": [
       "mysql",
-      "spanner_pg",
-      "spanner_gsql"
+      "spanner_gsql",
+      "spanner_pg"
     ],
     "golden_sql": {
       "mysql": [
         "ALTER TABLE tbl_reports ADD COLUMN message_id INT, ADD CONSTRAINT fk_reports_messages FOREIGN KEY (message_id) REFERENCES tbl_private_messages(message_id);"
       ],
-      "spanner_pg": [
-        "ALTER TABLE tbl_reports ADD COLUMN message_id BIGINT; ALTER TABLE tbl_reports ADD CONSTRAINT fk_reports_messages FOREIGN KEY (message_id) REFERENCES tbl_private_messages(message_id);"
-      ],
       "spanner_gsql": [
         "ALTER TABLE tbl_reports ADD COLUMN message_id INT64; ALTER TABLE tbl_reports ADD CONSTRAINT fk_reports_messages FOREIGN KEY (message_id) REFERENCES tbl_private_messages(message_id);"
+      ],
+      "spanner_pg": [
+        "ALTER TABLE tbl_reports ADD COLUMN message_id BIGINT; ALTER TABLE tbl_reports ADD CONSTRAINT fk_reports_messages FOREIGN KEY (message_id) REFERENCES tbl_private_messages(message_id);"
       ]
     },
     "eval_query": {
@@ -157,10 +157,10 @@
     ],
     "golden_sql": {
       "postgres": [
-        "SELECT p.post_id, p.likes_count, COUNT(c.comment_id) as comments_count FROM tbl_posts p LEFT JOIN tbl_comments c ON p.post_id = c.post_id GROUP BY p.post_id, p.title, p.likes_count ORDER BY total_comments DESC;"
+        "SELECT p.post_id, p.likes_count, COUNT(c.comment_id) as comments_count FROM tbl_posts p LEFT JOIN tbl_comments c ON p.post_id = c.post_id GROUP BY p.post_id, p.title, p.likes_count ORDER BY comments_count DESC;"
       ],
       "mysql": [
-        "SELECT p.post_id p.likes_count, COUNT(c.comment_id) as comments_count FROM tbl_posts p LEFT JOIN tbl_comments c ON p.post_id = c.post_id GROUP BY p.post_id, p.title, p.likes_count ORDER BY total_comments DESC;"
+        "SELECT p.post_id, p.likes_count, COUNT(c.comment_id) as comments_count FROM tbl_posts p LEFT JOIN tbl_comments c ON p.post_id = c.post_id GROUP BY p.post_id, p.title, p.likes_count ORDER BY comments_count DESC;"
       ],
       "spanner_pg": [
         "SELECT p.post_id, p.likes_count, COUNT(c.comment_id) as comments_count FROM tbl_posts p LEFT JOIN tbl_comments c ON p.post_id = c.post_id GROUP BY p.post_id, p.title, p.likes_count ORDER BY comments_count DESC;"
@@ -887,7 +887,7 @@
         "WITH rc AS (SELECT report_reason, COUNT(*) AS report_count, AVG(EXTRACT(EPOCH FROM (resolution_timestamp - report_timestamp)) / 60) AS avg_resolution_time FROM tbl_reports GROUP BY report_reason) SELECT report_reason, report_count, avg_resolution_time from rc WHERE report_count = (SELECT MAX(report_count) FROM rc)"
       ],
       "mysql": [
-        "WITH rc AS (SELECT report_reason, COUNT(*) AS report_count, AVG(EXTRACT(EPOCH FROM (resolution_timestamp - report_timestamp)) / 60) AS avg_resolution_time FROM tbl_reports GROUP BY report_reason) SELECT report_reason, report_count, avg_resolution_time from rc WHERE report_count = (SELECT MAX(report_count) FROM rc)"
+        "WITH rc AS (SELECT report_reason, COUNT(*) AS report_count, AVG(TIMESTAMPDIFF(MINUTE, report_timestamp, resolution_timestamp)) AS avg_resolution_time FROM tbl_reports GROUP BY report_reason) SELECT report_reason, report_count, avg_resolution_time from rc WHERE report_count = (SELECT MAX(report_count) FROM rc)"
       ],
       "spanner_pg": [
         "WITH rc AS (SELECT report_reason, COUNT(*) AS report_count, AVG(EXTRACT(EPOCH FROM (resolution_timestamp - report_timestamp)) / 60) AS avg_resolution_time FROM tbl_reports GROUP BY report_reason) SELECT report_reason, report_count, avg_resolution_time from rc WHERE report_count = (SELECT MAX(report_count) FROM rc)"
@@ -927,6 +927,7 @@
     "query_type": "dql",
     "database": "db_blog",
     "dialects": [
+      "postgres",
       "mysql",
       "spanner_pg",
       "spanner_gsql"
@@ -974,6 +975,7 @@
     "query_type": "dql",
     "database": "db_blog",
     "dialects": [
+      "postgres",
       "mysql",
       "spanner_pg",
       "spanner_gsql"
@@ -1781,10 +1783,10 @@
     ],
     "golden_sql": {
       "postgres": [
-        "INSERT INTO tbl_posts (post_id, title, content, published_at, is_published, views_count, likes_count, shares_count, created_at, updated_at, slug, excerpt, status_id, category_id, dislikes_count, comments_count, author_name, image_url, tags, reading_time, external_link, metadata) VALUES (12, 'Sample Post', 'This is a sample post on the blog', '2024-02-26 16:30:00', true, 120, 65, 30, '2024-02-26 16:30:00', '2024-02-26 16:30:00', 'sample-post', 'This is a sample post on the blog', 1, 2, 15, 8, 'Jane Doe', 'http://example.com/image2.jpg', '[ \"tag1\", \"tag2\", \"tag3\" ]'::json, 8, 'http://external-link2.com', '{\"key3\": \"value3\", \"key4\": \"value4\"}');"
+        "INSERT INTO tbl_posts (post_id, title, content, published_at, is_published, views_count, likes_count, shares_count, created_at, updated_at, slug, excerpt, status_id, category_id, dislikes_count, comments_count, author_name, image_url, tags, reading_time, external_link, metadata) VALUES (9999, 'Sample Post', 'This is a sample post on the blog', '2024-02-26 16:30:00', true, 120, 65, 30, '2024-02-26 16:30:00', '2024-02-26 16:30:00', 'sample-post', 'This is a sample post on the blog', 1, 2, 15, 8, 'Jane Doe', 'http://example.com/image2.jpg', '[ \"tag1\", \"tag2\", \"tag3\" ]'::json, 8, 'http://external-link2.com', '{\"key3\": \"value3\", \"key4\": \"value4\"}');"
       ],
       "mysql": [
-        "INSERT INTO tbl_posts VALUES (12 ,12, 'Sample Post', 'This is a sample post on the blog', '2024-02-26 16:30:00', 1, 120, 65, 30, '2024-02-26 16:30:00', '2024-02-26 16:30:00', 'sample-post', 'This is a sample post on the blog', 1, 2, 15, 8,1, 'Jane Doe', 'http://example.com/image2.jpg', '[\"database\", \"sql\", \"programming\"]', 8, null, null);"
+        "SET FOREIGN_KEY_CHECKS = 0; INSERT INTO tbl_posts (post_id, user_id, title, content, published_at, is_published, views_count, likes_count, shares_count, created_at, updated_at, slug, excerpt, status_id, category_id, dislikes_count, comments_count, is_featured, author_name, image_url, tags, reading_time, external_link, metadata) VALUES (9999 ,12, 'Sample Post', 'This is a sample post on the blog', '2024-02-26 16:30:00', 1, 120, 65, 30, '2024-02-26 16:30:00', '2024-02-26 16:30:00', 'sample-post', 'This is a sample post on the blog', 1, 2, 15, 8, 1, 'Jane Doe', 'http://example.com/image2.jpg', '[\"database\", \"sql\", \"programming\"]', 8, null, null); SET FOREIGN_KEY_CHECKS = 1;"
       ],
       "spanner_pg": [
         "INSERT INTO tbl_posts (post_id, title, content, published_at, is_published, views_count, likes_count, shares_count, created_at, updated_at, slug, excerpt, status_id, category_id, dislikes_count, comments_count, author_name, image_url, tags, reading_time, external_link, metadata) VALUES (9999, 'Sample Post', 'This is a sample post on the blog', '2024-02-26 16:30:00', true, 120, 65, 30, '2024-02-26 16:30:00', '2024-02-26 16:30:00', 'sample-post', 'This is a sample post on the blog', 1, 2, 15, 8, 'Jane Doe', 'http://example.com/image2.jpg', '[ \"tag1\", \"tag2\", \"tag3\" ]'::jsonb, 8, 'http://external-link2.com', '{\"key3\": \"value3\", \"key4\": \"value4\"}');"
@@ -2080,6 +2082,7 @@
     "query_type": "ddl",
     "database": "db_blog",
     "dialects": [
+      "postgres",
       "mysql",
       "spanner_pg",
       "spanner_gsql"
@@ -2235,6 +2238,7 @@
     "query_type": "dql",
     "database": "db_blog",
     "dialects": [
+      "postgres",
       "mysql",
       "spanner_pg",
       "spanner_gsql"
@@ -2371,8 +2375,8 @@
     "query_type": "dql",
     "database": "db_blog",
     "dialects": [
-      "mysql",
       "postgres",
+      "mysql",
       "spanner_pg",
       "spanner_gsql"
     ],
@@ -2463,8 +2467,8 @@
     "query_type": "dql",
     "database": "db_blog",
     "dialects": [
-      "mysql",
       "postgres",
+      "mysql",
       "spanner_pg",
       "spanner_gsql"
     ],
@@ -6232,10 +6236,10 @@
     ],
     "golden_sql": {
       "postgres": [
-        "INSERT INTO tbl_comments (comment_id, content, user_id, post_id, parent_comment_id, likes_count, created_at, updated_at, is_approved, dislikes_count, report_count, is_deleted, user_ip, user_agent, is_flagged, reply_count, mentions, attachments, metadata, is_edited) VALUES (11, 'Great post!', 2, 1, NULL, 10, '2024-02-26 12:15:00'::TIMESTAMP, '2024-02-26 12:15:00'::TIMESTAMP, TRUE, 2, 0, FALSE, '192.168.1.1', 'Mozilla/5.0', FALSE, 0, NULL, NULL, NULL, FALSE);"
+        "INSERT INTO tbl_comments (comment_id, content, user_id, post_id, parent_comment_id, likes_count, created_at, updated_at, is_approved, dislikes_count, report_count, is_deleted, user_ip, user_agent, is_flagged, reply_count, mentions, attachments, metadata, is_edited) VALUES (99999, 'Great post!', 2, 1, NULL, 10, '2024-02-26 12:15:00'::TIMESTAMP, '2024-02-26 12:15:00'::TIMESTAMP, TRUE, 2, 0, FALSE, '192.168.1.1', 'Mozilla/5.0', FALSE, 0, NULL, NULL, NULL, FALSE);"
       ],
       "mysql": [
-        "INSERT INTO tbl_comments (comment_id, content, user_id, post_id, parent_comment_id, likes_count, created_at, updated_at, is_approved, dislikes_count, report_count, is_deleted, user_ip, user_agent, is_flagged, reply_count, mentions, attachments, metadata, is_edited) VALUES (11, 'Great post!', 2, 1, NULL, 10, '2024-02-26 12:15:00', '2024-02-26 12:15:00', true, 2, 0, false, '192.168.1.1', 'Mozilla/5.0', false, 0, NULL, NULL, NULL, false);"
+        "INSERT INTO tbl_comments (comment_id, content, user_id, post_id, parent_comment_id, likes_count, created_at, updated_at, is_approved, dislikes_count, report_count, is_deleted, user_ip, user_agent, is_flagged, reply_count, mentions, attachments, metadata, is_edited) VALUES (99999, 'Great post!', 2, 1, NULL, 10, '2024-02-26 12:15:00', '2024-02-26 12:15:00', true, 2, 0, false, '192.168.1.1', 'Mozilla/5.0', false, 0, NULL, NULL, NULL, false);"
       ],
       "spanner_pg": [
         "INSERT INTO \"tbl_comments\" (\"comment_id\", \"content\", \"user_id\", \"post_id\", \"parent_comment_id\", \"likes_count\", \"created_at\", \"updated_at\", \"is_approved\", \"dislikes_count\", \"report_count\", \"is_deleted\", \"user_ip\", \"user_agent\", \"is_flagged\", \"reply_count\", \"mentions\", \"attachments\", \"metadata\", \"is_edited\") VALUES (11, 'Great post!', 2, 1, NULL, 10, '2024-02-26 12:15:00', '2024-02-26 12:15:00', TRUE, 2, 0, FALSE, '192.168.1.1', 'Mozilla/5.0', FALSE, 0, NULL, NULL, NULL, FALSE)"
@@ -6661,7 +6665,7 @@
     ],
     "golden_sql": {
       "mysql": [
-        "SET FOREIGN_KEY_CHECKS = 0; INSERT INTO tbl_posts VALUES (14,13, 'Sample Post', 'This is a sample post on the blog', '2024-02-26 16:30:00', 1, 120, 65, 30, '2024-02-26 16:30:00', '2024-02-26 16:30:00', 'sample-post', 'This is a sample post on the blog', 1, 2, 15, 8,1, 'Jane Doe', 'http://example.com/image2.jpg', '[\"database\", \"sql\", \"programming\"]', 8, null, null); SET FOREIGN_KEY_CHECKS = 1;"
+        "SET FOREIGN_KEY_CHECKS = 0; INSERT INTO tbl_posts VALUES (99999,13, 'Sample Post', 'This is a sample post on the blog', '2024-02-26 16:30:00', 1, 120, 65, 30, '2024-02-26 16:30:00', '2024-02-26 16:30:00', 'sample-post', 'This is a sample post on the blog', 1, 2, 15, 8,1, 'Jane Doe', 'http://example.com/image2.jpg', '[\"database\", \"sql\", \"programming\"]', 8, null, null); SET FOREIGN_KEY_CHECKS = 1;"
       ],
       "spanner_pg": [
         "SET \"foreign_key_checks\" = 0"
@@ -7392,7 +7396,7 @@
         "SELECT m1.uploader_id, u.username, m1.url FROM tbl_media m1 INNER JOIN ( SELECT uploader_id, MAX(upload_date) AS max_upload_date FROM tbl_media GROUP BY uploader_id ) m2 ON m1.uploader_id = m2.uploader_id AND m1.upload_date = m2.max_upload_date INNER JOIN tbl_users u ON m1.uploader_id = u.user_id;"
       ],
       "mysql": [
-        "SELECT m1.uploader_id, u.username, m1.url.description FROM tbl_media m1 INNER JOIN ( SELECT uploader_id, MAX(upload_date) AS max_upload_date FROM tbl_media GROUP BY uploader_id ) m2 ON m1.uploader_id = m2.uploader_id AND m1.upload_date = m2.max_upload_date INNER JOIN tbl_users u ON m1.uploader_id = u.user_id;"
+        "SELECT m1.uploader_id, u.username, m1.url FROM tbl_media m1 INNER JOIN ( SELECT uploader_id, MAX(upload_date) AS max_upload_date FROM tbl_media GROUP BY uploader_id ) m2 ON m1.uploader_id = m2.uploader_id AND m1.upload_date = m2.max_upload_date INNER JOIN tbl_users u ON m1.uploader_id = u.user_id;"
       ],
       "spanner_pg": [
         "SELECT \"m1\".\"uploader_id\", \"u\".\"username\", \"m1\".\"url\" FROM \"tbl_media\" AS \"m1\" INNER JOIN (SELECT \"uploader_id\", MAX(\"upload_date\") AS \"max_upload_date\" FROM \"tbl_media\" GROUP BY \"uploader_id\") AS \"m2\" ON \"m1\".\"uploader_id\" = \"m2\".\"uploader_id\" AND \"m1\".\"upload_date\" = \"m2\".\"max_upload_date\" INNER JOIN \"tbl_users\" AS \"u\" ON \"m1\".\"uploader_id\" = \"u\".\"user_id\""
@@ -7662,7 +7666,7 @@
     ],
     "golden_sql": {
       "postgres": [
-        "ALTER TABLE tbl_tags ADD COLUMN is_edited BOOLEAN; INSERT INTO tbl_tags (tag_id, creator_id, category_id, name, description, created_at, updated_at, slug, count, visibility, active, parent_tag, status_id, access_level, is_approved, metadata, is_edited) VALUES (11, 3, 1, 'NewTag', 'Tag related to a new topic', '2024-02-28 12:00:00', '2024-02-28 12:00:00', 'new-tag', 5, true, true, NULL, 1, 1, true, NULL, false);"
+        "INSERT INTO tbl_tags (tag_id, creator_id, category_id, name, description, created_at, updated_at, slug, count, visibility, active, parent_tag, status_id, access_level, is_approved, metadata, is_edited) VALUES (11, 3, 1, 'NewTag', 'Tag related to a new topic', '2024-02-28 12:00:00', '2024-02-28 12:00:00', 'new-tag', 5, true, true, NULL, 1, 1, true, NULL, false);"
       ],
       "mysql": [
         "INSERT INTO `tbl_tags` (`tag_id`,`creator_id`, `category_id`, `name`, `description`, `created_at`, `updated_at`, `slug`, `count`, `visibility`, `active`, `parent_tag`, `status_id`, `access_level`, `is_approved`, `metadata`, `is_edited`) VALUES (11,3, 1, 'NewTag', 'Tag related to a new topic', '2024-02-28 12:00:00', '2024-02-28 12:00:00', 'new-tag', 5, 1, 1, NULL, 1, 1, 1, NULL, 0);"
@@ -7855,10 +7859,10 @@
     ],
     "golden_sql": {
       "postgres": [
-        "INSERT INTO tbl_reports (report_id, user_id, post_id, report_reason, report_timestamp, is_resolved, resolved_by, resolution_timestamp, report_comments, severity_level, report_type, report_entity_type, report_entity_id, action_taken, action_timestamp, report_ip_address, reported_user_id, reported_comment_id, reported_user_reputation, report_category, reported_context_text, attachments, flagged_user, report_source, report_feedback, report_verification_status, report_mechanism, report_priority, assigned_to, report_history) VALUES (13, 2, 1, 'Inappropriate content', '2024-02-26 13:00:00', false, NULL, NULL, 'This post contains inappropriate content.', 2, 'content', 'post', 1, NULL, NULL, NULL, NULL, NULL, NULL, 'spam', NULL, NULL, false, 'web', 'No feedback provided', 'pending', 'user_report', 3, NULL, NULL);"
+        "INSERT INTO tbl_reports (report_id, user_id, post_id, report_reason, report_timestamp, is_resolved, resolved_by, resolution_timestamp, report_comments, severity_level, report_type, report_entity_type, report_entity_id, action_taken, action_timestamp, report_ip_address, reported_user_id, reported_comment_id, reported_user_reputation, report_category, reported_context_text, attachments, flagged_user, report_source, report_feedback, report_verification_status, report_mechanism, report_priority, assigned_to, report_history) VALUES (99999, 2, 1, 'Inappropriate content', '2024-02-26 13:00:00', false, NULL, NULL, 'This post contains inappropriate content.', 2, 'content', 'post', 1, NULL, NULL, NULL, NULL, NULL, NULL, 'spam', NULL, NULL, false, 'web', 'No feedback provided', 'pending', 'user_report', 3, NULL, NULL);"
       ],
       "mysql": [
-        "INSERT INTO tbl_reports (report_id, user_id, post_id, report_reason, report_timestamp, is_resolved, resolved_by, resolution_timestamp, report_comments, severity_level, report_type, report_entity_type, report_entity_id, action_taken, action_timestamp, report_ip_address, reported_user_id, reported_comment_id, reported_user_reputation, report_category, reported_context_text, attachments, flagged_user, report_source, report_feedback, report_verification_status, report_mechanism, report_priority, assigned_to, report_history) VALUES (13, 2, 1, 'Inappropriate content', '2024-02-26 13:00:00', false, NULL, NULL, 'This post contains inappropriate content.', 2, 'content', 'post', 1, NULL, NULL, NULL, NULL, NULL, NULL, 'spam', NULL, NULL, false, 'web', 'No feedback provided', 'pending', 'user_report', 3, NULL, NULL);"
+        "INSERT INTO tbl_reports (report_id, user_id, post_id, report_reason, report_timestamp, is_resolved, resolved_by, resolution_timestamp, report_comments, severity_level, report_type, report_entity_type, report_entity_id, action_taken, action_timestamp, report_ip_address, reported_user_id, reported_comment_id, reported_user_reputation, report_category, reported_context_text, attachments, flagged_user, report_source, report_feedback, report_verification_status, report_mechanism, report_priority, assigned_to, report_history) VALUES (99999, 2, 1, 'Inappropriate content', '2024-02-26 13:00:00', false, NULL, NULL, 'This post contains inappropriate content.', 2, 'content', 'post', 1, NULL, NULL, NULL, NULL, NULL, NULL, 'spam', NULL, NULL, false, 'web', 'No feedback provided', 'pending', 'user_report', 3, NULL, NULL);"
       ],
       "spanner_pg": [
         "INSERT INTO \"tbl_reports\" (\"report_id\", \"user_id\", \"post_id\", \"report_reason\", \"report_timestamp\", \"is_resolved\", \"resolved_by\", \"resolution_timestamp\", \"report_comments\", \"severity_level\", \"report_type\", \"report_entity_type\", \"report_entity_id\", \"action_taken\", \"action_timestamp\", \"report_ip_address\", \"reported_user_id\", \"reported_comment_id\", \"reported_user_reputation\", \"report_category\", \"reported_context_text\", \"attachments\", \"flagged_user\", \"report_source\", \"report_feedback\", \"report_verification_status\", \"report_mechanism\", \"report_priority\", \"assigned_to\", \"report_history\") VALUES (13, 2, 1, 'Inappropriate content', '2024-02-26 13:00:00', FALSE, NULL, NULL, 'This post contains inappropriate content.', 2, 'content', 'post', 1, NULL, NULL, NULL, NULL, NULL, NULL, 'spam', NULL, NULL, FALSE, 'web', 'No feedback provided', 'pending', 'user_report', 3, NULL, NULL)"
@@ -7973,10 +7977,10 @@
     ],
     "golden_sql": {
       "postgres": [
-        "INSERT INTO tbl_private_messages (message_id, sender_id, receiver_id, subject, body, sending_time, is_read, is_archived, is_deleted_by_sender, is_deleted_by_receiver, is_flagged, priority, attachment_id, conversation_id, status, parent_message_id, read_timestamp, message_data) VALUES (13, 1, 2, 'Hello Jane', 'Just wanted to say hi!', '2024-02-26 07:00:00'::timestamp, TRUE, FALSE, FALSE, FALSE, FALSE, 0, 2, NULL, 'sent', NULL, '2024-02-26 07:00:00'::timestamp, NULL);"
+        "INSERT INTO tbl_private_messages (message_id, sender_id, receiver_id, subject, body, sending_time, is_read, is_archived, is_deleted_by_sender, is_deleted_by_receiver, is_flagged, priority, attachment_id, conversation_id, status, parent_message_id, read_timestamp, message_data) VALUES (99999, 1, 2, 'Hello Jane', 'Just wanted to say hi!', '2024-02-26 07:00:00'::timestamp, TRUE, FALSE, FALSE, FALSE, FALSE, 0, 2, NULL, 'sent', NULL, '2024-02-26 07:00:00'::timestamp, NULL);"
       ],
       "mysql": [
-        "INSERT INTO tbl_private_messages (message_id, sender_id, receiver_id, subject, body, sending_time, is_read, is_archived, is_deleted_by_sender, is_deleted_by_receiver, is_flagged, priority, attachment_id, conversation_id, status, parent_message_id, read_timestamp, message_data) VALUES (13, 1, 2, 'Hello Jane', 'Just wanted to say hi!', '2024-02-26 07:00:00', 1, 0, 0, 0, 0, 0, 2, NULL, 'sent', NULL, '2024-02-26 07:00:00', NULL);"
+        "INSERT INTO tbl_private_messages (message_id, sender_id, receiver_id, subject, body, sending_time, is_read, is_archived, is_deleted_by_sender, is_deleted_by_receiver, is_flagged, priority, attachment_id, conversation_id, status, parent_message_id, read_timestamp, message_data) VALUES (99999, 1, 2, 'Hello Jane', 'Just wanted to say hi!', '2024-02-26 07:00:00', 1, 0, 0, 0, 0, 0, 2, NULL, 'sent', NULL, '2024-02-26 07:00:00', NULL);"
       ],
       "spanner_pg": [
         "INSERT INTO \"tbl_private_messages\" (\"message_id\", \"sender_id\", \"receiver_id\", \"subject\", \"body\", \"sending_time\", \"is_read\", \"is_archived\", \"is_deleted_by_sender\", \"is_deleted_by_receiver\", \"is_flagged\", \"priority\", \"attachment_id\", \"conversation_id\", \"status\", \"parent_message_id\", \"read_timestamp\", \"message_data\") VALUES (13, 1, 2, 'Hello Jane', 'Just wanted to say hi!', '2024-02-26 07:00:00', 1, 0, 0, 0, 0, 0, 2, NULL, 'sent', NULL, '2024-02-26 07:00:00', NULL)"
@@ -8083,7 +8087,7 @@
         "SELECT post_id FROM tbl_posts WHERE title LIKE '%data%' ORDER BY post_id DESC LIMIT 5;"
       ],
       "mysql": [
-        "SELECT post_id FROM tbl_posts WHERE post_title LIKE '%data%' ORDER BY post_id DESC LIMIT 5;"
+        "SELECT post_id FROM tbl_posts WHERE title LIKE '%data%' ORDER BY post_id DESC LIMIT 5;"
       ],
       "spanner_pg": [
         "SELECT \"post_id\" FROM \"tbl_posts\" WHERE \"title\" LIKE '%data%' ORDER BY \"post_id\" DESC NULLS LAST LIMIT 5"
@@ -12046,7 +12050,7 @@
     ],
     "golden_sql": {
       "postgres": [
-        "ALTER TABLE tbl_users ADD CONSTRAINT chk_users_active_status CHECK (active IN (false, true));"
+        "ALTER TABLE tbl_users ADD CONSTRAINT chk_users_active_status CHECK (CAST(active AS BOOLEAN) IN (false, true));"
       ],
       "mysql": [
         "ALTER TABLE tbl_users ADD CONSTRAINT chk_users_active_status CHECK (active IN (0, 1));"
@@ -12622,7 +12626,7 @@
     ],
     "golden_sql": {
       "postgres": [
-        "INSERT INTO tbl_users (user_id, first_name, last_name, username, password_hash, social_media_links, contact_info, avatar_url, bio, website, created_at, updated_at, notification_preferences, role_id, last_login, active) VALUES (12, 'John', 'Doe', 'johndoe', 'password123', '{\"twitter\": \"@johndoe\"}', '{\"email\": \"johndoe@example.com\", \"phone\": \"555-123-4567\"}', 'http://example.com/avatar.jpg', 'A software developer passionate about coding', 'http://www.johndoe.com', NOW(), NOW(), '{\"email\": true, \"sms\": false}', 1, NOW(), true);"
+        "INSERT INTO tbl_users (user_id, first_name, last_name, username, password_hash, social_media_links, contact_info, avatar_url, bio, website, created_at, updated_at, notification_preferences, role_id, last_login, active) VALUES (12, 'John', 'Doe', 'johndoe', 'password123', '{\"twitter\": \"@johndoe\"}', '{\"email\": \"johndoe@example.com\", \"phone\": \"555-123-4567\"}', 'http://example.com/avatar.jpg', 'A software developer passionate about coding', 'http://www.johndoe.com', NOW(), NOW(), '{\"email\": true, \"sms\": false}', 1, NOW(), '1');"
       ],
       "spanner_pg": [
         "INSERT INTO tbl_users (user_id, first_name, last_name, username, password_hash, social_media_links, contact_info, avatar_url, bio, website, created_at, updated_at, notification_preferences, role_id, last_login, active) VALUES (12, 'John', 'Doe', 'johndoe', 'password123', '{\"twitter\": \"@johndoe\"}', '{\"email\": \"johndoe@example.com\", \"phone\": \"555-123-4567\"}', 'http://example.com/avatar.jpg', 'A software developer passionate about coding', 'http://www.johndoe.com', NOW(), NOW(), '{\"email\": true, \"sms\": false}', 1, NOW(), '1');"
@@ -13142,7 +13146,7 @@
     ],
     "golden_sql": {
       "postgres": [
-        "INSERT INTO tbl_users VALUES ( 11, 'John', 'Doe', 'johndoe', 'password123', null, null, 'http://example.com/avatar.jpg', 'A software developer passionate about coding', 'http://www.johndoe.com', NOW(), NOW(), '{\"\"\"\"email\"\"\"\",\"\"\"\"app\"\"\"\"}', 1, NOW(), 1 )"
+        "INSERT INTO tbl_users VALUES ( 99999, 'John', 'Doe', 'johndoe', 'password123', null, null, 'http://example.com/avatar.jpg', 'A software developer passionate about coding', 'http://www.johndoe.com', NOW(), NOW(), '{\"\"\"\"email\"\"\"\",\"\"\"\"app\"\"\"\"}', 1, NOW(), 1 )"
       ],
       "spanner_pg": [
         "INSERT INTO \"tbl_users\" VALUES (11, 'John', 'Doe', 'johndoe', 'password123', NULL, NULL, 'http://example.com/avatar.jpg', 'A software developer passionate about coding', 'http://www.johndoe.com', NOW(), NOW(), '{\"\"\"\"email\"\"\"\",\"\"\"\"app\"\"\"\"}', 1, NOW(), 1)"
@@ -14299,7 +14303,7 @@
     ],
     "golden_sql": {
       "postgres": [
-        "WITH conversations AS (SELECT conversation_id, MAX(sending_time) - MIN(sending_time) conv_length FROM tbl_private_messages WHERE conversation_id IS NOT NULL GROUP BY conversation_id HAVING SUM(CASE WHEN is_read THEN 1 ESLE 0 END) = 0) SELECT pm.conversation_id, DATE(sending_time), COUNT(*) FROM tbl_private_messages pm INNER JOIN conversations c ON pm.conversation_id = c.conversation_id WHERE c.conv_length > INTERVAL '1 day' GROUP BY pm.conversation_id, DATE(sending_time)"
+        "WITH conversations AS (SELECT conversation_id, MAX(sending_time) - MIN(sending_time) conv_length FROM tbl_private_messages WHERE conversation_id IS NOT NULL GROUP BY conversation_id HAVING SUM(CASE WHEN is_read THEN 1 ELSE 0 END) = 0) SELECT pm.conversation_id, DATE(sending_time), COUNT(*) FROM tbl_private_messages pm INNER JOIN conversations c ON pm.conversation_id = c.conversation_id WHERE c.conv_length > INTERVAL '1 day' GROUP BY pm.conversation_id, DATE(sending_time)"
       ],
       "mysql": [
         "SELECT pm.conversation_id, DATE(pm.sending_time), COUNT(*) FROM tbl_private_messages pm INNER JOIN (SELECT conversation_id, TIMESTAMPDIFF(SECOND, MIN(sending_time), MAX(sending_time)) AS conv_length FROM tbl_private_messages WHERE conversation_id IS NOT NULL GROUP BY conversation_id HAVING SUM(CASE WHEN is_read THEN 1 ELSE 0 END) = 0) AS conversations ON pm.conversation_id = conversations.conversation_id WHERE conversations.conv_length > 86400 GROUP BY pm.conversation_id, DATE(pm.sending_time);"
