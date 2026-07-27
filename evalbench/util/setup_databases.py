@@ -55,7 +55,7 @@ def setup_databases(config_path: str):
             setup_config = config
             try:
                 setup_scripts, data = _get_setup_values(
-                    setup_config, db_name, db_type)
+                    setup_config, db_name, db_type, dialect)
             except Exception as e:
                 print(f"  Failed to load setup values: {e}")
                 continue
