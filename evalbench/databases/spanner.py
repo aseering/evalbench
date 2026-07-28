@@ -320,21 +320,6 @@ class SpannerDB(DB):
             raise RuntimeError(
                 f"Failed to create Spanner DB {database_name}: {e}") from e
 
-    def ensure_database_exists(self, database_name: str) -> None:
-        from google.cloud import spanner
-        from google.api_core import exceptions
-        with spanner.Client() as spanner_client:
-            instance_id = self.db_path.split("/")[-1]
-            instance = spanner_client.instance(instance_id)
-            database = instance.database(database_name)
-            try:
-                op = database.create()
-                op.result()  # Wait for completion
-            except exceptions.AlreadyExists:
-                pass
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to create Spanner DB {database_name}: {e}") from e
 
     def _get_quote_char(self):
         return '"' if self.expected_dialect_str == "POSTGRESQL" else '`'
@@ -465,7 +450,7 @@ class SpannerDB(DB):
             schema_name = 'public' if self.expected_dialect_str == "POSTGRESQL" else ''
             with self.database.snapshot() as snapshot:
                 type_col = "spanner_type" if self.expected_dialect_str == "GOOGLESQL" else "data_type"
-                query = f"SELECT table_name, column_name, {type_col} FROM information_schema.columns WHERE table_schema = '{schema_name}' ORDER BY table_name, ordinal_position"
+                query = f"SELECT table_name, column_name, {type_col} FROM information_schema.columns WHERE table_schema = '{schema_name}' AND (UPPER(is_generated) != 'ALWAYS' OR is_generated IS NULL) AND LOWER(column_name) NOT IN ('_row_id', 'surrogate_id') ORDER BY table_name, ordinal_position"
                 res = snapshot.execute_sql(query, timeout=self.query_timeout)
                 for row in res:
                     t_name, c_name, d_type = row[0], row[1], row[2]
