@@ -159,7 +159,7 @@ class BigQueryReporter(Reporter):
                     include=["float64", "float32"]
                 ).columns
                 for col in float_cols:
-                    if col not in int_cols:
+                    if col not in int_cols and col != "score":
                         # Convert to string and strip .0 if effectively int
                         chunk[col] = (
                             chunk[col]
@@ -167,6 +167,7 @@ class BigQueryReporter(Reporter):
                             .str.replace(r"\.0$", "", regex=True)
                             .replace("nan", None)
                         )
+
 
             # Retry loop for BQ load job to handle transient rate limits
             max_retries = 5
