@@ -1,11 +1,22 @@
 import os
+import tempfile
 from threading import Thread, Lock
 import logging
 import time
 from absl import app
 import uuid
 
-SESSION_RESOURCES_PATH = "/tmp_sessions/"
+def _get_session_resources_path() -> str:
+    primary_path = "/tmp_sessions/"
+    try:
+        os.makedirs(primary_path, exist_ok=True)
+        return primary_path
+    except (PermissionError, OSError):
+        fallback_path = os.path.join(tempfile.gettempdir(), "sessions")
+        os.makedirs(fallback_path, exist_ok=True)
+        return fallback_path
+
+SESSION_RESOURCES_PATH = _get_session_resources_path()
 
 
 class RWLock:
@@ -77,16 +88,30 @@ class SessionManager:
             self.lock.release_read()
 
     def write_resource_files(self, session_id, resources):
+        if not session_id or session_id.strip() in {"", ".", ".."}:
+            raise ValueError(f"Invalid session_id: {session_id}")
+        safe_session_id = os.path.basename(os.path.normpath(session_id))
+        base_path = os.path.abspath(SESSION_RESOURCES_PATH).rstrip(os.sep) + os.sep
+        session_dir = os.path.abspath(os.path.join(SESSION_RESOURCES_PATH, safe_session_id)).rstrip(os.sep) + os.sep
+        if not session_dir.startswith(base_path):
+            raise ValueError(f"Invalid session_id: {session_id}")
         for resource in resources:
-            full_path = os.path.join(
-                SESSION_RESOURCES_PATH, session_id, resource.address
-            )
+            safe_rel_path = os.path.normpath(resource.address).lstrip("/")
+            full_path = os.path.abspath(os.path.join(session_dir, safe_rel_path))
+            if not full_path.startswith(session_dir):
+                raise ValueError(f"Invalid resource address: {resource.address}")
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             with open(full_path, "wb") as f:
                 f.write(resource.content)
 
     def prune_resource_files(self, session_id):
-        path = os.path.join(SESSION_RESOURCES_PATH, session_id)
+        if not session_id or session_id.strip() in {"", ".", ".."}:
+            raise ValueError(f"Invalid session_id: {session_id}")
+        safe_session_id = os.path.basename(os.path.normpath(session_id))
+        base_path = os.path.abspath(SESSION_RESOURCES_PATH).rstrip(os.sep) + os.sep
+        path = os.path.abspath(os.path.join(SESSION_RESOURCES_PATH, safe_session_id))
+        if not (path + os.sep).startswith(base_path):
+            raise ValueError(f"Invalid session_id: {session_id}")
         if not os.path.exists(path):
             return
         for root, dirs, files in os.walk(path, topdown=False):
@@ -102,6 +127,8 @@ class SessionManager:
         os.rmdir(path)
 
     def create_session(self, session_id):
+        if not session_id or str(session_id).strip() in {"", ".", ".."}:
+            raise ValueError(f"Invalid session_id: {session_id}")
         self.lock.acquire_write()
         try:
             if session_id in self.sessions:
@@ -144,5 +171,8 @@ class SessionManager:
             for sid in to_delete:
                 logging.info(f"Delete session {sid}.")
                 self.delete_session(sid)
-                self.prune_resource_files(sid)
+                try:
+                    self.prune_resource_files(sid)
+                except Exception as e:
+                    logging.error(f"Error pruning session resources for {sid}: {e}")
             time.sleep(10)
